@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🗑️ Денисова помойка</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a1a;
+            font-family: system-ui, 'Courier New', monospace;
+            padding: 20px;
+            color: #0f0;
+        }
+        h1 { text-align: center; margin-bottom: 30px; color: #ff6600; }
+        .login-box, .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .login-box {
+            background: #2a2a2a;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            margin-top: 100px;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: #111;
+            border: 1px solid #ff6600;
+            color: white;
+            border-radius: 10px;
+        }
+        button {
+            background: #ff6600;
+            color: black;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .error { color: #ff4444; margin-top: 10px; }
+        .section {
+            background: #2a2a2a;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            background: #111;
+            border: 1px solid #ff6600;
+            color: #0f0;
+            padding: 12px;
+            border-radius: 10px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        .note, .file-item {
+            background: #2a2a2a;
+            border-left: 5px solid #ff6600;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+        }
+        .file-item { border-left-color: #44aa44; }
+        .preview-img { max-width: 100%; max-height: 200px; border-radius: 10px; margin-top: 10px; }
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #ff4444;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .tab.active { background: #ff6600; color: black; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .stats { font-size: 0.8rem; color: #888; text-align: center; margin-top: 20px; }
+        input[type="file"] {
+            background: #111;
+            color: white;
+            padding: 10px;
+            border-radius: 10px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .search-box input {
+            margin-bottom: 15px;
+        }
+        .logout {
+            float: right;
+            color: #ff6600;
+            text-decoration: none;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <!-- Форма входа -->
+    <div id="loginScreen" class="login-box">
+        <h1>🔐 Денисова помойка</h1>
+        <p style="margin-bottom: 20px;">Введите пароль, чтобы зайти</p>
+        <input type="password" id="passwordInput" placeholder="Пароль">
+        <button onclick="checkPassword()">Войти</button>
+        <div id="loginError" class="error"></div>
+    </div>
+
+    <!-- Основной контент -->
+    <div id="mainContent" style="display:none;">
+        <div style="max-width:600px;margin:0 auto;">
+            <a href="#" onclick="logout()" class="logout">🚪 Выйти</a>
+            <h1>🗑️ Денисова помойка</h1>
+            
+            <div class="tabs">
+                <div class="tab active" onclick="showTab('notes')">📝 Заметки</div>
+                <div class="tab" onclick="showTab('files')">📎 Файлы</div>
+            </div>
+            
+            <div id="notesTab" class="tab-content active">
+                <div class="section">
+                    <textarea id="noteContent" rows="3" placeholder="Пиши любую хуйню..."></textarea>
+                    <button onclick="addNote()">💾 Сохранить</button>
+                    <button onclick="deleteAllNotes()" style="background:#660000;">🗑️ Всё удалить</button>
+                </div>
+                <div class="search-box">
+                    <input type="text" id="searchNotes" placeholder="🔍 Искать в заметках...">
+                </div>
+                <div id="notesList"></div>
+            </div>
+            
+            <div id="filesTab" class="tab-content">
+                <div class="section">
+                    <input type="file" id="fileInput" multiple>
+                    <button onclick="uploadFiles()">📤 Загрузить</button>
+                    <button onclick="deleteAllFiles()" style="background:#660000;">🗑️ Всё удалить</button>
+                </div>
+                <div class="search-box">
+                    <input type="text" id="searchFiles" placeholder="🔍 Искать в файлах...">
+                </div>
+                <div id="filesList"></div>
+            </div>
+            
+            <div class="stats" id="stats"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ========== ПАРОЛЬ (меняй здесь) ==========
+    const CORRECT_PASSWORD = "denis123";  // Смени на свой пароль, дебил!
+    
+    // ========== ДАННЫЕ ==========
+    let notes = [];
+    let files = [];
+    
+    // ========== ПРОВЕРКА ПАРОЛЯ ==========
+    function checkPassword() {
+        const input = document.getElementById('passwordInput').value;
+        if (input === CORRECT_PASSWORD) {
+            localStorage.setItem('denis_auth', 'true');
+            showMainContent();
+        } else {
+            document.getElementById('loginError').innerText = 'Пароль неверный, иди нахуй!';
+        }
+    }
+    
+    function showMainContent() {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+        loadData();
+        renderNotes();
+        renderFiles();
+    }
+    
+    function logout() {
+        localStorage.removeItem('denis_auth');
+        document.getElementById('loginScreen').style.display = 'block';
+        document.getElementById('mainContent').style.display = 'none';
+        document.getElementById('passwordInput').value = '';
+        document.getElementById('loginError').innerText = '';
+    }
+    
+    // Проверяем при загрузке, не заходил ли уже
+    if (localStorage.getItem('denis_auth') === 'true') {
+        showMainContent();
+    }
+    
+    // ========== ЗАГРУЗКА/СОХРАНЕНИЕ ==========
+    function loadData() {
+        const savedNotes = localStorage.getItem('denis_pomoyka_notes');
+        if (savedNotes) notes = JSON.parse(savedNotes);
+        else notes = [];
+        
+        const savedFiles = localStorage.getItem('denis_pomoyka_files');
+        if (savedFiles) files = JSON.parse(savedFiles);
+        else files = [];
+    }
+    
+    function saveNotes() {
+        localStorage.setItem('denis_pomoyka_notes', JSON.stringify(notes));
+        renderNotes();
+    }
+    
+    function saveFiles() {
+        localStorage.setItem('denis_pomoyka_files', JSON.stringify(files));
+        renderFiles();
+    }
+    
+    // ========== ЗАМЕТКИ ==========
+    function addNote() {
+        const text = document.getElementById('noteContent').value.trim();
+        if (!text) {
+            alert("Напиши хоть что-то");
+            return;
+        }
+        notes.unshift({
+            id: Date.now(),
+            text: text,
+            date: new Date().toLocaleString()
+        });
+        document.getElementById('noteContent').value = '';
+        saveNotes();
+    }
+    
+    function deleteNote(id) {
+        notes = notes.filter(n => n.id !== id);
+        saveNotes();
+    }
+    
+    function deleteAllNotes() {
+        if (confirm("Удалить все заметки?")) {
+            notes = [];
+            saveNotes();
+        }
+    }
+    
+    function renderNotes() {
+        const searchTerm = document.getElementById('searchNotes')?.value.toLowerCase() || '';
+        let filtered = notes;
+        if (searchTerm) {
+            filtered = notes.filter(n => n.text.toLowerCase().includes(searchTerm));
+        }
+        
+        const container = document.getElementById('notesList');
+        if (!container) return;
+        
+        if (filtered.length === 0) {
+            container.innerHTML = '<div style="text-align:center;color:#888;padding:40px;">📭 Нет заметок.</div>';
+        } else {
+            let html = '';
+            for (let note of filtered) {
+                html += `
+                    <div class="note">
+                        <p>${escapeHtml(note.text)}</p>
+                        <small>📅 ${note.date}</small><br>
+                        <button class="delete-btn" onclick="deleteNote(${note.id})">❌ Удалить</button>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+        updateStats();
+    }
+    
+    // ========== ФАЙЛЫ ==========
+    function uploadFiles() {
+        const input = document.getElementById('fileInput');
+        if (!input.files.length) {
+            alert("Выбери файлы");
+            return;
+        }
+        
+        for (let file of input.files) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                files.unshift({
+                    id: Date.now() + Math.random(),
+                    name: file.name,
+                    type: file.type,
+                    data: e.target.result,
+                    size: file.size,
+                    date: new Date().toLocaleString()
+                });
+                saveFiles();
+            };
+            reader.readAsDataURL(file);
+        }
+        input.value = "";
+    }
+    
+    function deleteFile(id) {
+        files = files.filter(f => f.id !== id);
+        saveFiles();
+    }
+    
+    function deleteAllFiles() {
+        if (confirm("Удалить все файлы?")) {
+            files = [];
+            saveFiles();
+        }
+    }
+    
+    function renderFiles() {
+        const searchTerm = document.getElementById('searchFiles')?.value.toLowerCase() || '';
+        let filtered = files;
+        if (searchTerm) {
+            filtered = files.filter(f => f.name.toLowerCase().includes(searchTerm));
+        }
+        
+        const container = document.getElementById('filesList');
+        if (!container) return;
+        
+        if (filtered.length === 0) {
+            container.innerHTML = '<div style="text-align:center;color:#888;padding:40px;">📭 Нет файлов.</div>';
+        } else {
+            let html = '';
+            for (let file of filtered) {
+                let preview = '';
+                if (file.type.startsWith('image/')) {
+                    preview = `<img src="${file.data}" class="preview-img"><br>`;
+                } else if (file.type.startsWith('video/')) {
+                    preview = `<video controls class="preview-img"><source src="${file.data}"></video><br>`;
+                } else {
+                    preview = `<div style="background:#111;padding:10px;border-radius:10px;display:inline-block;">📄 ${file.type || 'файл'}</div><br>`;
+                }
+                
+                let sizeText = '';
+                if (file.size < 1024) sizeText = file.size + ' B';
+                else if (file.size < 1024*1024) sizeText = (file.size/1024).toFixed(1) + ' KB';
+                else sizeText = (file.size/(1024*1024)).toFixed(1) + ' MB';
+                
+                html += `
+                    <div class="file-item">
+                        <p><strong>📎 ${escapeHtml(file.name)}</strong> (${sizeText})</p>
+                        ${preview}
+                        <small>📅 ${file.date}</small><br>
+                        <a href="${file.data}" download="${escapeHtml(file.name)}" style="color:cyan;">⬇ Скачать</a><br>
+                        <button class="delete-btn" onclick="deleteFile(${file.id})">❌ Удалить</button>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+        updateStats();
+    }
+    
+    function updateStats() {
+        const statsSpan = document.getElementById('stats');
+        if (statsSpan) {
+            statsSpan.innerText = `📝 Заметок: ${notes.length} | 📎 Файлов: ${files.length}`;
+        }
+    }
+    
+    function showTab(tab) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        event.target.classList.add('active');
+        
+        document.getElementById('notesTab').classList.remove('active');
+        document.getElementById('filesTab').classList.remove('active');
+        
+        if (tab === 'notes') {
+            document.getElementById('notesTab').classList.add('active');
+            renderNotes();
+        } else {
+            document.getElementById('filesTab').classList.add('active');
+            renderFiles();
+        }
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Поиск
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchNotes = document.getElementById('searchNotes');
+        const searchFiles = document.getElementById('searchFiles');
+        if (searchNotes) searchNotes.addEventListener('input', renderNotes);
+        if (searchFiles) searchFiles.addEventListener('input', renderFiles);
+    });
+</script>
+</body>
+</html>
